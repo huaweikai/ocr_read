@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "hua.ocr.read"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
