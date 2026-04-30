@@ -1,33 +1,32 @@
 package hua.ocr.read.vm
 
 import android.app.Application
-import android.graphics.ImageDecoder
 import android.graphics.Point
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.graphics.decodeBitmap
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import hua.ocr.read.bean.OcrBlock
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.launch
 import java.util.Locale
 
-class OCRReadViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context = application.applicationContext
 
     var uri by mutableStateOf<Uri?>(null)
     var blocks by mutableStateOf<List<OcrBlock>>(emptyList())
+
+    // 输入文本
+    var inputText by mutableStateOf("")
+
+    // 当前页面
+    var currentPage by mutableStateOf(0)
 
     var imageWidth by mutableStateOf(0)
     var imageHeight by mutableStateOf(0)

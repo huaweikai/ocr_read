@@ -60,6 +60,8 @@ dependencies {
     implementation(libs.coil)
     implementation(libs.coil.compose)
     implementation(libs.androidx.material.icons.core)
+    implementation(libs.liquid)
+    implementation(libs.liquid.shape)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
