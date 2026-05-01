@@ -13,7 +13,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.Token
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -129,7 +129,7 @@ fun BottomTabsContent(
     pagerState: PagerState,
 ) {
 
-    val list = listOf("OCR", "文本输入")
+    val list = listOf("图片输入", "文本输入")
 
     val scope = rememberCoroutineScope()
 
@@ -182,7 +182,7 @@ fun MainTopBar(
             } else {
                 IconButton(onClick = onSwitchEngine) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = Icons.Rounded.Token,
                         contentDescription = "切换引擎"
                     )
                 }

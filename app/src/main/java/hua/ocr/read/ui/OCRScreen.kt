@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,18 +51,21 @@ fun OCRScreen(backdrop: Backdrop) {
 
     val blocks = viewModel.blocks
 
+    val uriState by viewModel.uriStateFlow.collectAsState()
+
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { result ->
         result?.let {
-            viewModel.uri = it
-            viewModel.processImage()
+            viewModel.updateUri(it)
         }
     }
 
     AnimatedContent(
-        targetState = viewModel.uri,
+        modifier = Modifier.fillMaxSize()
+            .padding(16.dp),
+        targetState = uriState,
         label = "ocr_switch"
-    ) { uri ->
-        if (uri == null) {
+    ) { state ->
+        if (state.uri == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -74,9 +79,16 @@ fun OCRScreen(backdrop: Backdrop) {
                     Text("选择图片", color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
+        } else if (state.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         } else {
             OCRContent(
-                uri = uri,
+                uri = state.uri,
                 viewModel = viewModel,
                 backdrop = backdrop,
                 blocks = blocks
@@ -165,9 +177,9 @@ private fun OCRContent(
             backdrop = backdrop,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = 15.dp, top = 15.dp)
+                .padding(top = 15.dp)
                 .size(48.dp),
-            onClick = { viewModel.uri = null },
+            onClick = { viewModel.updateUri(null, false) },
             tint = MaterialTheme.colorScheme.primary
         ) {
             Image(

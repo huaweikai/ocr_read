@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import hua.ocr.read.bean.OcrBlock
+import hua.ocr.read.bean.OcrUiState
 import hua.ocr.read.engine.OcrEngine
 import hua.ocr.read.engine.OcrEngineType
 import hua.ocr.read.engine.SmartOcrEngine
@@ -16,13 +17,18 @@ import hua.ocr.read.engine.mk_lit.MlKitOcrEngine
 import hua.ocr.read.engine.paddle.PaddleOcrEngine
 import hua.ocr.read.utils.getBitmapFromUri
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    var uri by mutableStateOf<Uri?>(null)
+    private val _uriStateFlow = MutableStateFlow(OcrUiState(null, false))
+    val uriStateFlow = _uriStateFlow.asStateFlow()
+
     var blocks by mutableStateOf<List<OcrBlock>>(emptyList())
 
     // 输入文本
@@ -33,8 +39,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     var imageWidth by mutableStateOf(0)
     var imageHeight by mutableStateOf(0)
-
-    var isLoading by mutableStateOf(false)
 
     private val engineOrder = listOf(
         OcrEngineType.SMART,
@@ -81,12 +85,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateUri(uri: Uri?, needProgress: Boolean = true) {
+        _uriStateFlow.update { it.copy(uri = uri) }
+        if (uri == null) {
+            if (tts?.isSpeaking == true) {
+                tts?.stop()
+            }
+            return
+        }
+        if (needProgress) {
+            processImage()
+        }
+    }
+
     fun processImage() {
-        val uri = uri ?: return
-        isLoading = true
+        val uri = uriStateFlow.value.uri ?: return
+        _uriStateFlow.update { it.copy(isLoading = true) }
         val bitmap = getApplication<Application>().getBitmapFromUri(uri)
         if (bitmap == null) {
-            this.uri = null
+            this._uriStateFlow.update { OcrUiState() }
             emitError("获取图片失败")
             return
         }
@@ -100,7 +117,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 emitError(result.exceptionOrNull()?.message.orEmpty())
                 emptyList()
             }
-            isLoading = false
+            _uriStateFlow.update { it.copy(isLoading = false) }
         }
     }
 

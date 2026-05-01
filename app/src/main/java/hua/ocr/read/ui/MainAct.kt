@@ -14,7 +14,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.core.content.IntentCompat
 import hua.ocr.read.vm.MainViewModel
-import kotlin.getValue
 
 class MainAct : AppCompatActivity() {
 
@@ -43,8 +42,7 @@ class MainAct : AppCompatActivity() {
                 Intent.EXTRA_STREAM,
                 Uri::class.java
             )?.let {
-                vm.uri = it
-                vm.processImage()
+                vm.updateUri(it)
                 vm.currentPage = 0 // 自动切到 OCR 页
             }
         } else if (intent?.action == Intent.ACTION_PROCESS_TEXT) {
