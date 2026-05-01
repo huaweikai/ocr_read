@@ -1,32 +1,26 @@
 package hua.ocr.read.vm
 
 import android.app.Application
-import android.graphics.Point
 import android.net.Uri
-import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import hua.ocr.read.bean.OcrBlock
 import hua.ocr.read.engine.OcrEngine
 import hua.ocr.read.engine.OcrEngineType
 import hua.ocr.read.engine.SmartOcrEngine
 import hua.ocr.read.engine.mk_lit.MlKitOcrEngine
 import hua.ocr.read.engine.paddle.PaddleOcrEngine
+import hua.ocr.read.utils.getBitmapFromUri
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val context = application.applicationContext
 
     var uri by mutableStateOf<Uri?>(null)
     var blocks by mutableStateOf<List<OcrBlock>>(emptyList())
@@ -53,7 +47,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val engineMap: Map<OcrEngineType, OcrEngine> by lazy {
         val mlKit = MlKitOcrEngine()
-        val paddle = PaddleOcrEngine(context)
+        val paddle = PaddleOcrEngine(getApplication())
         mapOf(
             OcrEngineType.ML_KIT to mlKit,
             OcrEngineType.PADDLE to paddle,
@@ -67,7 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var tts: TextToSpeech? = null
 
     init {
-        tts = TextToSpeech(context) {
+        tts = TextToSpeech(getApplication()) {
             tts?.language = Locale.CHINESE
         }
         viewModelScope.launch {
@@ -81,7 +75,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val events = _events.asSharedFlow()
 
     fun emitError(msg: String) {
-        if (msg.isNotEmpty()) return
+        if (msg.isEmpty()) return
         viewModelScope.launch {
             _events.emit(msg)
         }
@@ -90,7 +84,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun processImage() {
         val uri = uri ?: return
         isLoading = true
-        val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+        val bitmap = getApplication<Application>().getBitmapFromUri(uri)
+        if (bitmap == null) {
+            this.uri = null
+            emitError("获取图片失败")
+            return
+        }
         imageWidth = bitmap.width
         imageHeight = bitmap.height
         viewModelScope.launch {

@@ -32,12 +32,12 @@ class PaddleOcrEngine(
 
     override suspend fun recognize(bitmap: Bitmap): Result<List<OcrBlock>> {
         if (!isInitialized) {
-            return Result.failure(RuntimeException("ocr engine not initialized"))
+            return Result.failure(RuntimeException("OCR 引擎未初始化"))
         }
         return suspendCancellableCoroutine { count ->
             val result = ocr.detectBitmap(bitmap, drawModel = DrawModel.None)
             if (result == null) {
-                count.resume(Result.failure(RuntimeException("ocr engine can not recognize bitmap")))
+                count.resume(Result.failure(RuntimeException("OCR 引擎无法识别图片")))
             }
             else {
                 val blocks = result.textLines.mapNotNull {

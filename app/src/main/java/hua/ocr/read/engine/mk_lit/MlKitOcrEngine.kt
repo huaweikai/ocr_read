@@ -21,7 +21,7 @@ class MlKitOcrEngine : BaseOcrEngine() {
 
     override suspend fun recognize(bitmap: Bitmap): Result<List<OcrBlock>> {
         if (!isInitialized) {
-            return Result.failure(RuntimeException("ocr engine not initialized"))
+            return Result.failure(RuntimeException("OCR 引擎未初始化"))
         }
 
         return suspendCancellableCoroutine { cont ->
