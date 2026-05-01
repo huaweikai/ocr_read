@@ -1,10 +1,13 @@
 package hua.ocr.read.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +34,7 @@ fun TextInputPage(vm: MainViewModel, backdrop: Backdrop) {
             onValueChange = { vm.inputText = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .fillMaxHeight(0.4f),
             placeholder = { Text("输入要朗读的内容") }
         )
 

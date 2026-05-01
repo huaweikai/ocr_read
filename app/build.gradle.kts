@@ -36,6 +36,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     kotlin {
@@ -62,6 +63,7 @@ dependencies {
     implementation(libs.androidx.material.icons.core)
     implementation(libs.liquid)
     implementation(libs.liquid.shape)
+    implementation(libs.ncnnandroidppocr)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

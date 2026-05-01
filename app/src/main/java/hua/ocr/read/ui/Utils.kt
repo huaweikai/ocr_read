@@ -1,8 +1,11 @@
 package hua.ocr.read.ui
 
 import android.graphics.Point
+import android.graphics.Rect
+import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import kotlin.math.min
 
 fun mapToCanvas(
@@ -48,4 +51,43 @@ fun isPointInPolygon(point: Offset, polygon: List<Offset>): Boolean {
     }
 
     return inside
+}
+
+fun isPointInRect(point: Offset, rect: RectF): Boolean {
+    return point.x >= rect.left &&
+            point.x <= rect.right &&
+            point.y >= rect.top &&
+            point.y <= rect.bottom
+}
+
+fun mapRectToCanvas(
+    rect: Rect,
+    imageWidth: Int,
+    imageHeight: Int,
+    canvasSize: IntSize
+): RectF {
+
+    val scale = minOf(
+        canvasSize.width.toFloat() / imageWidth,
+        canvasSize.height.toFloat() / imageHeight
+    )
+
+    val dx = (canvasSize.width - imageWidth * scale) / 2f
+    val dy = (canvasSize.height - imageHeight * scale) / 2f
+
+    return RectF(
+        rect.left * scale + dx,
+        rect.top * scale + dy,
+        rect.right * scale + dx,
+        rect.bottom * scale + dy
+    )
+}
+
+fun RectF.expand(padding: Float): RectF {
+    return RectF(
+        left - padding,
+        top - padding,
+        right + padding,
+        bottom + padding
+    )
 }

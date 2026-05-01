@@ -1,10 +1,12 @@
 package hua.ocr.read.ui
 
+import android.net.Uri
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -24,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
@@ -31,11 +35,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.kyant.backdrop.Backdrop
+import hua.ocr.read.bean.OcrBlock
 import hua.ocr.read.components.LiquidButton
 import hua.ocr.read.vm.MainViewModel
 
@@ -45,8 +49,6 @@ fun OCRScreen(backdrop: Backdrop) {
 
     val blocks = viewModel.blocks
 
-    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { result ->
         result?.let {
             viewModel.uri = it
@@ -54,29 +56,43 @@ fun OCRScreen(backdrop: Backdrop) {
         }
     }
 
-    val context = LocalContext.current
-
-    if (viewModel.uri == null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            LiquidButton(
-                modifier = Modifier
-                    .fillMaxWidth(0.6f),
-                onClick = {
-                    launcher.launch("image/*")
-                },
-                backdrop = backdrop,
-                tint = MaterialTheme.colorScheme.primary
+    AnimatedContent(
+        targetState = viewModel.uri,
+        label = "ocr_switch"
+    ) { uri ->
+        if (uri == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text("选择图片", color = MaterialTheme.colorScheme.onPrimary)
+                LiquidButton(
+                    modifier = Modifier.fillMaxWidth(0.6f),
+                    onClick = { launcher.launch("image/*") },
+                    backdrop = backdrop,
+                    tint = MaterialTheme.colorScheme.primary
+                ) {
+                    Text("选择图片", color = MaterialTheme.colorScheme.onPrimary)
+                }
             }
+        } else {
+            OCRContent(
+                uri = uri,
+                viewModel = viewModel,
+                backdrop = backdrop,
+                blocks = blocks
+            )
         }
-        return
     }
+}
 
+@Composable
+private fun OCRContent(
+    uri: Uri,
+    viewModel: MainViewModel,
+    backdrop: Backdrop,
+    blocks: List<OcrBlock>
+) {
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(
         modifier = Modifier
@@ -85,49 +101,50 @@ fun OCRScreen(backdrop: Backdrop) {
             .pointerInput(blocks, canvasSize) {
                 detectTapGestures { offset ->
                     val hit = blocks.firstOrNull { block ->
-
-                        val mapped = mapToCanvas(
-                            block.cornerPoints,
+                        val mapped = mapRectToCanvas(
+                            block.rect,
                             viewModel.imageWidth,
                             viewModel.imageHeight,
                             canvasSize
-                        )
+                        ).expand(16.dp.toPx())
 
-                        isPointInPolygon(offset, mapped)
+                        isPointInRect(offset, mapped)
                     }
 
-                    hit?.let {
-                        viewModel.speak(it.text)
-                    }
+                    hit?.let { viewModel.speak(it.text) }
                 }
             }
     ) {
 
         AsyncImage(
-            model = viewModel.uri,
+            model = uri,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit
         )
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-
             blocks.forEach { block ->
-
-                val pts = mapToCanvas(
-                    block.cornerPoints,
+                val rect = mapRectToCanvas(
+                    block.rect,
                     viewModel.imageWidth,
                     viewModel.imageHeight,
                     canvasSize
+                ).expand(8.dp.toPx())
+
+                drawRect(
+                    color = Color.Red,
+                    topLeft = Offset(rect.left, rect.top),
+                    size = Size(rect.width(), rect.height()),
+                    style = Stroke(width = 2.dp.toPx())
                 )
 
-                if (pts.size < 4) return@forEach
 
                 val path = Path().apply {
-                    moveTo(pts[0].x, pts[0].y)
-                    for (i in 1 until pts.size) {
-                        lineTo(pts[i].x, pts[i].y)
-                    }
+                    moveTo(rect.left, rect.top)
+                    lineTo(rect.right, rect.top)
+                    lineTo(rect.right, rect.bottom)
+                    lineTo(rect.left, rect.bottom)
                     close()
                 }
 
@@ -148,15 +165,13 @@ fun OCRScreen(backdrop: Backdrop) {
             backdrop = backdrop,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = 15.dp)
+                .padding(end = 15.dp, top = 15.dp)
                 .size(48.dp),
-            onClick = {
-                viewModel.uri = null
-            },
+            onClick = { viewModel.uri = null },
             tint = MaterialTheme.colorScheme.primary
         ) {
             Image(
-                modifier = Modifier.size(28f.dp),
+                modifier = Modifier.size(28.dp),
                 imageVector = Icons.Default.Clear,
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                 contentDescription = null,

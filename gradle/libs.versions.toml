@@ -7,6 +7,7 @@ junitVersion = "1.1.5"
 espressoCore = "3.7.0"
 appcompat = "1.7.1"
 material = "1.13.0"
+ncnnandroidppocr = "v1.3.0"
 text-recongition = "16.0.1"
 lifecycle-runtime-ktx = "2.10.0"
 activity-compose = "1.13.0"
@@ -28,6 +29,7 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+ncnnandroidppocr = { module = "com.github.equationl.paddleocr4android:ncnnandroidppocr", version.ref = "ncnnandroidppocr" }
 text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "text-recongition" }
 text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "text-recongition" }
 text-recognition-devanagari = { group = "com.google.mlkit", name = "text-recognition-devanagari", version.ref = "text-recongition" }

@@ -9,10 +9,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import hua.ocr.read.bean.OcrBlock
+import hua.ocr.read.engine.OcrEngine
+import hua.ocr.read.engine.OcrEngineType
+import hua.ocr.read.engine.SmartOcrEngine
+import hua.ocr.read.engine.mk_lit.MlKitOcrEngine
+import hua.ocr.read.engine.paddle.PaddleOcrEngine
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,7 +42,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     var isLoading by mutableStateOf(false)
 
-    private val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+    private val engineOrder = listOf(
+        OcrEngineType.SMART,
+        OcrEngineType.PADDLE,
+        OcrEngineType.ML_KIT
+    )
+
+    var currentEngineType by mutableStateOf(OcrEngineType.PADDLE)
+        private set
+
+    private val engineMap: Map<OcrEngineType, OcrEngine> by lazy {
+        val mlKit = MlKitOcrEngine()
+        val paddle = PaddleOcrEngine(context)
+        mapOf(
+            OcrEngineType.ML_KIT to mlKit,
+            OcrEngineType.PADDLE to paddle,
+            OcrEngineType.SMART to SmartOcrEngine(mlKit, paddle)
+        )
+    }
+
+    private var engine: OcrEngine = engineMap[currentEngineType]!!
+
 
     private var tts: TextToSpeech? = null
 
@@ -41,40 +70,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         tts = TextToSpeech(context) {
             tts?.language = Locale.CHINESE
         }
+        viewModelScope.launch {
+            engineMap.values.forEach {
+                launch { it.init() }
+            }
+        }
+    }
+
+    private val _events = MutableSharedFlow<String>()
+    val events = _events.asSharedFlow()
+
+    fun emitError(msg: String) {
+        if (msg.isNotEmpty()) return
+        viewModelScope.launch {
+            _events.emit(msg)
+        }
     }
 
     fun processImage() {
         val uri = uri ?: return
-
         isLoading = true
-
-        try {
-            // ⚠️ 必须拿原图尺寸
-            val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-            imageWidth = bitmap.width
-            imageHeight = bitmap.height
-
-            val image = InputImage.fromBitmap(bitmap, 0)
-
-            recognizer.process(image)
-                .addOnSuccessListener { result ->
-
-                    blocks = result.textBlocks.mapNotNull { block ->
-                        val pts = block.cornerPoints
-                        if (pts != null && pts.size == 4) {
-                            OcrBlock(block.text, pts.toList())
-                        } else null
-                    }
-
-                    blocks = mergeBlocks(blocks)
-
-                    isLoading = false
-                }
-                .addOnFailureListener {
-                    isLoading = false
-                }
-
-        } catch (e: Exception) {
+        val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+        imageWidth = bitmap.width
+        imageHeight = bitmap.height
+        viewModelScope.launch {
+            val result = engine.recognize(bitmap)
+            blocks = if (result.isSuccess) {
+                result.getOrNull().orEmpty()
+            } else {
+                emitError(result.exceptionOrNull()?.message.orEmpty())
+                emptyList()
+            }
             isLoading = false
         }
     }
@@ -85,70 +111,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ocr")
     }
 
+    fun switchEngine(): String {
+
+        val currentIndex = engineOrder.indexOf(currentEngineType)
+        val nextIndex = (currentIndex + 1) % engineOrder.size
+
+        val next = engineOrder[nextIndex]
+
+        currentEngineType = next
+        engine = engineMap[next]!!
+
+        viewModelScope.launch {
+            engine.init()
+        }
+
+        return when (next) {
+            OcrEngineType.SMART -> "已切换为 智能模式"
+            OcrEngineType.PADDLE -> "已切换为 Paddle OCR"
+            OcrEngineType.ML_KIT -> "已切换为 ML Kit OCR"
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         tts?.shutdown()
-        recognizer.close()
     }
 
-    fun mergeBlocks(blocks: List<OcrBlock>): List<OcrBlock> {
-
-        if (blocks.isEmpty()) return emptyList()
-
-        val sorted = blocks.sortedBy { it.cornerPoints.minOf { p -> p.y } }
-
-        val result = mutableListOf<MutableList<OcrBlock>>()
-
-        for (block in sorted) {
-
-            val currentTop = block.cornerPoints.minOf { it.y }
-            val currentLeft = block.cornerPoints.minOf { it.x }
-
-            val lastGroup = result.lastOrNull()
-
-            if (lastGroup == null) {
-                result.add(mutableListOf(block))
-                continue
-            }
-
-            val lastBlock = lastGroup.last()
-
-            val lastBottom = lastBlock.cornerPoints.maxOf { it.y }
-            val lastLeft = lastBlock.cornerPoints.minOf { it.x }
-
-            val verticalGap = currentTop - lastBottom
-            val leftDiff = kotlin.math.abs(currentLeft - lastLeft)
-
-            // 👇 这两个阈值可以调
-            val isSameParagraph = verticalGap < 40 /**行间距 */ && leftDiff < 40         // 左对齐
-
-            if (isSameParagraph) {
-                lastGroup.add(block)
-            } else {
-                result.add(mutableListOf(block))
-            }
-        }
-
-        // 合并 group → 新 block
-        return result.map { group ->
-
-            val text = group.joinToString("\n") { it.text }
-
-            val allPoints = group.flatMap { it.cornerPoints }
-
-            val left = allPoints.minOf { it.x }
-            val top = allPoints.minOf { it.y }
-            val right = allPoints.maxOf { it.x }
-            val bottom = allPoints.maxOf { it.y }
-
-            val mergedPoints = listOf(
-                Point(left, top),
-                Point(right, top),
-                Point(right, bottom),
-                Point(left, bottom)
-            )
-
-            OcrBlock(text, mergedPoints)
-        }
-    }
 }
